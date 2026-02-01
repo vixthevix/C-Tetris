@@ -473,14 +473,23 @@ void display(int glength, int gheight, char grid[glength][gheight], Piece piece,
 	free(buffer);
 }
 
+unsigned long hash(char* string) {
+    unsigned long h = 5381;
+    int c;
 
+    while (c = *string++) {
+        h = ((h << 5) + h) + c;
+    }
+
+    return h;
+}
 
 int main(int argc, char** argv) {
 	enable_raw_mode(); //for kbhit
 	if (argc <= 1) srand(time(NULL));
 	else {
 		//convert the string into an int and use it as the seed
-		const int seed = atoi(argv[1]);
+		const unsigned long seed = hash(argv[1]);
 		srand(seed);
 	}
 		
