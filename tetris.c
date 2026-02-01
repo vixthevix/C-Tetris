@@ -15,6 +15,18 @@
 #define CYANBG "\e[46m"
 #define WHITEBG "\e[47m"
 
+#define BLACKTEXT "\e[0;30m"
+#define REDTEXT "\e[0;31m"
+#define GREENTEXT "\e[0;32m"
+#define YELLOWTEXT "\e[0;33m"
+#define BLUETEXT "\e[0;34m"
+#define PURPLETEXT "\e[0;35m"
+#define CYANTEXT "\e[0;36m"
+#define WHITETEXT "\e[0;37m"
+
+#define SQUARECH "\u25a0"
+#define RECTCH "\u2588"
+
 const char colours[7][20] = {
 	REDBG,
 	GREENBG,
@@ -24,6 +36,16 @@ const char colours[7][20] = {
 	CYANBG,
 	WHITEBG
 };
+
+//const char tcolours[7][20] = {
+//	REDTEXT,
+//	GREENTEXT,
+//	YELLOWTEXT,
+//	BLUETEXT,
+//	PURPLETEXT,
+//	CYANTEXT,
+//	WHITETEXT
+//};
 
 #define RESETTEXT "\e[0m"
 
@@ -378,7 +400,27 @@ int scoreRows(int glength, int gheight, char grid[glength][gheight]) {
 	return score;
 }
 
-void display(int glength, int gheight, char grid[glength][gheight], Piece piece, int score) {
+void display(int glength, int gheight, char grid[glength][gheight], Piece piece, Piece nextpiece, int score) {
+
+	//first we edit nextpiece so that it is outside of the grid.
+	//at most, the horizontal length is 3 and the vertical length is 4
+	nextpiece.p1.y += 2;
+	nextpiece.p2.y += 2;
+	nextpiece.p3.y += 2;
+	nextpiece.p4.y += 2;
+
+	const int npxinc = (glength >> 1) + 2;
+
+	nextpiece.p1.x += npxinc;
+	nextpiece.p2.x += npxinc;
+	nextpiece.p3.x += npxinc;
+	nextpiece.p4.x += npxinc;
+	
+//	nextpiece.p1.x += (5 + 1);
+//	nextpiece.p2.x += (5 + 1);
+//	nextpiece.p3.x += (5 + 1);
+//	nextpiece.p4.x += (5 + 1);
+
 	const char* reset = "\033[2J\033[H\e[?25l";
 	
 	int totalsize = (((glength + 2) * (gheight + 1)) + sizeof(reset)) * 8;
@@ -388,9 +430,11 @@ void display(int glength, int gheight, char grid[glength][gheight], Piece piece,
 	ptr += sprintf(ptr, reset);
 	ptr += sprintf(ptr, "score: %i\n", score);
 	
+	int x = 0;
 	for (int y = 0; y < gheight; y++) {
 		ptr += sprintf(ptr, "|");
-		for (int x = 0; x < glength; x++) {
+		for (x = 0; x < glength; x++) {
+
 			if (grid[x][y] >= 0) ptr += sprintf(ptr, "%s ", colours[grid[x][y]]);
 			else if ((piece.p1.x == x && piece.p1.y == y) || (piece.p2.x == x && piece.p2.y == y) || (piece.p3.x == x && piece.p3.y == y) || (piece.p4.x == x && piece.p4.y == y)) {
 				//ptr += sprintf(ptr, "#");
@@ -399,7 +443,25 @@ void display(int glength, int gheight, char grid[glength][gheight], Piece piece,
 			else ptr += sprintf(ptr, " ");
 			ptr += sprintf(ptr, RESETTEXT);
 		}
-		ptr += sprintf(ptr, "|\n");
+
+
+		ptr += sprintf(ptr, "| ");
+		if (y == 0) {
+			ptr += sprintf(ptr, "next:");
+		}
+		else if (1 < y && y < 6) { //the piece
+			for (int i = x; i < (x + 4); i++) {
+				if ((nextpiece.p1.x == i && nextpiece.p1.y == y) || (nextpiece.p2.x == i && nextpiece.p2.y == y) || (nextpiece.p3.x == i && nextpiece.p3.y == y) || (nextpiece.p4.x == i && nextpiece.p4.y == y)) {
+					ptr += sprintf(ptr, "%s ", colours[nextpiece.type]);
+				}
+				else {
+					ptr += sprintf(ptr, RESETTEXT);
+					ptr += sprintf(ptr, " ");
+				}
+			}
+		}
+		ptr += sprintf(ptr, RESETTEXT);
+		ptr += sprintf(ptr, "\n");
 	}
 	ptr += sprintf(ptr, " ");
 	for (int i = 0; i < glength; i++) {
@@ -436,25 +498,29 @@ int main(int argc, char** argv) {
 	//char** grid = (char**) calloc(glength, sizeof(char*));
 	//for (int i = 0; i < 
 		
-	Piece testpiece = generatePiece(getRandomPiecetype());
+	Piece piece = generatePiece(getRandomPiecetype());
+	//used to show what piece is next
+	Piece nextpiece = generatePiece(getRandomPiecetype());
 
-	unsigned frames = 150000;
+	unsigned frames = 200000;
 
 	int score = 0;
 
 	bool going = true;
 	while (going) {
-		if (!loop(glength, gheight, grid, &testpiece)) { //piece was placed
-			addPieceToGrid(glength, gheight, grid, testpiece);
+		if (!loop(glength, gheight, grid, &piece)) { //piece was placed
+			addPieceToGrid(glength, gheight, grid, piece);
 			//now we want to check the grid for any completed rows.
 			score += scoreRows(glength, gheight, grid);
-			testpiece = generatePiece(getRandomPiecetype());
+			piece = nextpiece;
+			nextpiece = generatePiece(getRandomPiecetype());
 			//in order to check if we have lost, we need to check if this newpiece at the beginning is valid
-			if (!validPiecePosition(glength, gheight, grid, &testpiece)) {
+			if (!validPiecePosition(glength, gheight, grid, &piece)) {
 				going = false;
 			}
+			continue;
 		}
-		display(glength, gheight, grid, testpiece, score);
+		display(glength, gheight, grid, piece, nextpiece, score);
 		usleep(frames);
 	}
 	printf("\n\nYou lost! your score was %i\n", score);
