@@ -77,9 +77,25 @@ typedef enum Piecetype {
 	BL
 } Piecetype;
 
+void shuffleBag(Piecetype bag[7]) {
+	int i;
+	for (i = 0; i < 7 - i; i++) {
+		int j = i + rand() / (RAND_MAX / (7 - i) + 1);
+		Piecetype temp = bag[i];
+		bag[i] = bag[j];
+		bag[j] = temp;
+		//bag[j] = (bag[i] ^ bag[j]);
+		//bag[i] = (bag[j] ^ bag[i]);
+		//bag[j] = (bag[i] ^ bag[j]);
+	}
+}
+
+//we cannot have the same piece appear 3 times in a row.
 Piecetype getRandomPiecetype() {
 	const int count = 7;
 	const int choice = rand() % count;
+	
+	Piecetype new = (Piecetype) choice;
 	
 	return (Piecetype) choice;
 }
@@ -262,27 +278,31 @@ bool validPiecePosition(int glength, int gheight, char grid[glength][gheight], P
 	return true;
 }
 
-bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece) {
+bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, char shiftCount) {
 	//order of what happens
 	//first move down
 	//second check for collisions with floor / other pieces. if true return immediately.
 	//then check io for rotating and moving. make sure the result doesnt go inside other pieces.
 	
-	Piece newpiece = *piece;
-	//move down
-	newpiece.p1.y++;
-	newpiece.p2.y++;
-	newpiece.p3.y++;
-	newpiece.p4.y++;
-	
-	if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
-		newpiece.p1.y--;
-		newpiece.p2.y--;
-		newpiece.p3.y--;
-		newpiece.p4.y--;
 
-		*piece = newpiece;
-		return false;
+	Piece newpiece = *piece;
+	
+	//move down only when shiftcount is 0
+	if (shiftCount == 0) {
+		newpiece.p1.y++;
+		newpiece.p2.y++;
+		newpiece.p3.y++;
+		newpiece.p4.y++;
+		
+		if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
+			newpiece.p1.y--;
+			newpiece.p2.y--;
+			newpiece.p3.y--;
+			newpiece.p4.y--;
+
+			*piece = newpiece;
+			return false;
+		}
 	}
 
 	//this means that the piece will continue on moving down, so we allow IO here.
@@ -375,9 +395,17 @@ void addPieceToGrid(int glength, int gheight, char grid[glength][gheight], Piece
 
 int scoreRows(int glength, int gheight, char grid[glength][gheight]) {
 	//we check from the top what rows are complete and what to move down.
+	//we will use the original BulletProofSoftware scoring system (https://tetris.wiki/Tetris_(BPS))
 	
 	const int scoreInc = 10;
 	int score = 0;
+
+	/* With the way tetris works, it guarantees that, if multiple lines are scored, they are in a row.
+	 * 
+	 * */
+	int scores[] = {40, 100, 300, 1200};
+	int scoreindex = -1;
+	bool inARow = false;
 	
 
 	for (int y = 0; y < gheight; y++) {
@@ -387,16 +415,29 @@ int scoreRows(int glength, int gheight, char grid[glength][gheight]) {
 		}
 		
 		if (tally == glength) { //if the row is complete
-			score += scoreInc;
+			inARow = true;
+			if (scoreindex < 3) scoreindex += 1;
 			//move everything down
 			for (int i = y; i > 0; i--) {
 				for (int x = 0; x < glength; x++) {
 					grid[x][i] = grid[x][i - 1];
 				}
 			}
-		}	
+		}
+		else {
+			inARow = false;
+			if (scoreindex >= 0) {
+				score += scores[scoreindex];
+				scoreindex = -1;
+			}
+		}
 	}
-
+	
+	if (scoreindex >= 0) {
+		score += scores[scoreindex];
+		scoreindex = -1;
+	}
+	
 	return score;
 }
 
@@ -484,17 +525,74 @@ unsigned long hash(char* string) {
     return h;
 }
 
+void printHelp() {
+	printf("Hello, welcome to tetris :D\nTo play, just enter tetris (or ./tetris)\nControls are:\na -> move left\nd -> move right\nq -> rotate clockwise\ne -> rotate anticlockwise\nd -> drop piece down\n\nList of flags:\n-h -> lists this message.\n-s -> enter your seed.\n\nHave fun!!!\n\n");
+}
+
 int main(int argc, char** argv) {
 	enable_raw_mode(); //for kbhit
-	if (argc <= 1) srand(time(NULL));
+	srand(time(NULL));
+	if (argc <= 1);
 	else {
-		//convert the string into an int and use it as the seed
-		const unsigned long seed = hash(argv[1]);
-		srand(seed);
+		//we add now flags
+		//our flags will be:
+		//	-s: seed	
+		//	-h: help (doesnt play tetris at all just shows controls and stuff
+		bool isFlag = false;
+		char* flag;
+		for (int i = 1; i < argc; i++) {
+			char* cur = argv[i];
+			if (!strcmp(cur, "-h")) {
+				//print out the help;
+				printHelp();
+				return 0;
+			}
+			if ((!strcmp(cur, "-h") || !strcmp(cur, "-s")) && isFlag == false) {
+				isFlag = true;
+				flag = cur;
+			}
+			else {
+				if (isFlag == true) {
+					//now we compare the flag
+					if (!strcmp(flag, "-h")) {
+						//print out the help;
+						printHelp();
+						return 0;
+					}
+					if (!strcmp(flag, "-s")) {
+						//convert the string into an int and use it as the seed
+						const unsigned long seed = hash(cur);
+						srand(seed);
+					}
+				}
+				isFlag = false;
+			}
+		}
 	}
-		
+
+	
 
 	const char* reset = "\033[2J\033[H\e[?25l";
+	
+	int bagindex = 0;
+	//int nextbagindex = (bagindex + 1) % 7;
+	Piecetype bag[] = {
+		T,
+		STRAIGHT,
+		CUBE,
+		S,
+		Z,
+		L,
+		BL
+	};
+	shuffleBag(bag);
+	printf("\n");
+	for (int i = 0; i < 7; i++) {
+		printf("%i, ", bag[i]);
+	}
+	printf("\n");
+	//return 0;
+
 
 	int
 	gheight = 20,
@@ -507,22 +605,38 @@ int main(int argc, char** argv) {
 	//char** grid = (char**) calloc(glength, sizeof(char*));
 	//for (int i = 0; i < 
 		
-	Piece piece = generatePiece(getRandomPiecetype());
+	//Piece piece = generatePiece(getRandomPiecetype());
 	//used to show what piece is next
-	Piece nextpiece = generatePiece(getRandomPiecetype());
+	//Piece nextpiece = generatePiece(getRandomPiecetype());
+	
+	Piece piece = generatePiece(bag[bagindex]);
+	//used to show what piece is next
+	Piece nextpiece = generatePiece(bag[bagindex + 1]);
+	bagindex++;
 
-	unsigned frames = 200000;
 
 	int score = 0;
+	
+	const char shiftMod = 3;
+	char shiftCount = 0;
+	
+	unsigned frames = 200000 / shiftMod;
 
 	bool going = true;
 	while (going) {
-		if (!loop(glength, gheight, grid, &piece)) { //piece was placed
+		if (!loop(glength, gheight, grid, &piece, shiftCount)) { //piece was placed
 			addPieceToGrid(glength, gheight, grid, piece);
 			//now we want to check the grid for any completed rows.
 			score += scoreRows(glength, gheight, grid);
+			
+			bagindex = (bagindex + 1) % 7;
+			//nextbagindex = (bagindex + 1) % 7;
+			if (bagindex == 0) { //we've reached the end
+				shuffleBag(bag);
+				//bagindex = 0;
+			} 
 			piece = nextpiece;
-			nextpiece = generatePiece(getRandomPiecetype());
+			nextpiece = generatePiece(bag[bagindex]);
 			//in order to check if we have lost, we need to check if this newpiece at the beginning is valid
 			if (!validPiecePosition(glength, gheight, grid, &piece)) {
 				going = false;
@@ -530,7 +644,16 @@ int main(int argc, char** argv) {
 			continue;
 		}
 		display(glength, gheight, grid, piece, nextpiece, score);
+
+		//printf("\n");
+		//for (int i = 0; i < 7; i++) {
+		//	printf("%i, ", bag[i]);
+		//}
+		//printf("\n");
+		
 		usleep(frames);
+		shiftCount++;
+		shiftCount %= shiftMod;
 	}
 	printf("\n\nYou lost! your score was %i\n", score);
 
