@@ -37,6 +37,8 @@ const char colours[7][20] = {
 	WHITEBG
 };
 
+const char* filename = "tetris_scores.txt";
+
 //const char tcolours[7][20] = {
 //	REDTEXT,
 //	GREENTEXT,
@@ -400,9 +402,6 @@ int scoreRows(int glength, int gheight, char grid[glength][gheight]) {
 	const int scoreInc = 10;
 	int score = 0;
 
-	/* With the way tetris works, it guarantees that, if multiple lines are scored, they are in a row.
-	 * 
-	 * */
 	int scores[] = {40, 100, 300, 1200};
 	int scoreindex = -1;
 	bool inARow = false;
@@ -445,13 +444,14 @@ void display(int glength, int gheight, char grid[glength][gheight], Piece piece,
 
 	//first we edit nextpiece so that it is outside of the grid.
 	//at most, the horizontal length is 3 and the vertical length is 4
-	nextpiece.p1.y += 2;
-	nextpiece.p2.y += 2;
-	nextpiece.p3.y += 2;
-	nextpiece.p4.y += 2;
+	
+	const int npyinc = 2;
+	nextpiece.p1.y += npyinc;
+	nextpiece.p2.y += npyinc;
+	nextpiece.p3.y += npyinc;
+	nextpiece.p4.y += npyinc;
 
 	const int npxinc = (glength >> 1) + 2;
-
 	nextpiece.p1.x += npxinc;
 	nextpiece.p2.x += npxinc;
 	nextpiece.p3.x += npxinc;
@@ -526,44 +526,104 @@ unsigned long hash(char* string) {
 }
 
 void printHelp() {
-	printf("Hello, welcome to tetris :D\nTo play, just enter tetris (or ./tetris)\nControls are:\na -> move left\nd -> move right\nq -> rotate clockwise\ne -> rotate anticlockwise\nd -> drop piece down\n\nList of flags:\n-h -> lists this message.\n-s -> enter your seed.\n\nHave fun!!!\n\n");
+	printf("Hello, welcome to tetris :D\nTo play, just enter tetris (or ./tetris)\nControls are:\na -> move left\nd -> move right\nq -> rotate clockwise\ne -> rotate anticlockwise\nd -> drop piece down\n\nList of flags:\n-h/--help -> lists this message.\n-s/--seed -> enter your seed.\n-n/--new -> enter a username to save your score.\n-sh/--show -> show all your scores.\n-cl/--clear -> clears all your scores.\nHave fun!!!\n\n");
+}
+
+void showScore() {
+	//we open the score file and print it out
+	FILE* file = fopen(filename, "r");
+
+	fseek(file, 0, SEEK_END);
+	size_t size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char* buffer = (char*) calloc(size, sizeof(char));
+	fread(buffer, 1, size, file);
+	printf("\nHere are the following scores:\n%s\n", buffer);
+	
+	free(buffer);
+	fclose(file);
+}
+
+void clearScore() {
+	printf("Are you sure you want to do this? (y/n) ");
+	char response = 0;
+	scanf(" %c", &response);
+	printf("\n");
+	if (response == 'y') {
+		printf("clearing scores...\n");
+		FILE* file = fopen(filename, "w");
+		fclose(file);
+		printf("scores cleared.\n");
+	}
 }
 
 int main(int argc, char** argv) {
 	enable_raw_mode(); //for kbhit
 	srand(time(NULL));
+	bool saving = false;
+	char* user = NULL;
+	const int maxUserLength = 10;
+
+
 	if (argc <= 1);
 	else {
 		//we add now flags
 		//our flags will be:
-		//	-s: seed	
-		//	-h: help (doesnt play tetris at all just shows controls and stuff
+		//	-s (--seed): seed	
+		//	-n (--new): username (for saving score to a save file)
+		//	-h (--help): help (doesnt play tetris at all just shows controls and stuff
+		//	-sh (--show): shows scores
+		//	-cl (--clear): deletes all scores
 		bool isFlag = false;
 		char* flag;
 		for (int i = 1; i < argc; i++) {
 			char* cur = argv[i];
-			if (!strcmp(cur, "-h")) {
+			if (!strcmp(cur, "-h") || !strcmp(cur, "--help")) {
 				//print out the help;
 				printHelp();
 				return 0;
 			}
-			if ((!strcmp(cur, "-h") || !strcmp(cur, "-s")) && isFlag == false) {
+			else if (!strcmp(cur, "-sh") || !strcmp(cur, "--show")) {
+				
+				showScore();
+				return 0;
+			}
+			else if (!strcmp(cur, "-cl") || !strcmp(cur, "--clear")) {
+				clearScore();
+				return 0;
+			}
+
+			//the rest of these do require arguments
+			if ((!strcmp(cur, "-s") || !strcmp(cur, "--seed") || !strcmp(cur, "-n") || !strcmp(cur, "--new")) && isFlag == false) {
 				isFlag = true;
 				flag = cur;
 			}
 			else {
 				if (isFlag == true) {
 					//now we compare the flag
-					if (!strcmp(flag, "-h")) {
-						//print out the help;
-						printHelp();
-						return 0;
-					}
-					if (!strcmp(flag, "-s")) {
+//					if (!strcmp(flag, "-h")) {
+//						//print out the help;
+//						printHelp();
+//						return 0;
+//					}
+					if (!strcmp(flag, "-s") || !strcmp(flag, "--seed")) {
 						//convert the string into an int and use it as the seed
 						const unsigned long seed = hash(cur);
 						srand(seed);
 					}
+					else if (!strcmp(flag, "-n") || !strcmp(flag, "--new")) {
+						saving = true;
+						user = cur;
+						if (strlen(user) > maxUserLength) {
+							printf("\n\nerror, username cannot be greater than %i characters long\n\n", maxUserLength);
+							return 0;
+						}
+						for (int i = 0; i < strlen(user); i++) {
+							if (user[i] == ':') { printf("\n\nerror, username cannot have a ':' character\n\n"); return 0; }
+						}
+					}
+
 				}
 				isFlag = false;
 			}
@@ -656,6 +716,101 @@ int main(int argc, char** argv) {
 		shiftCount %= shiftMod;
 	}
 	printf("\n\nYou lost! your score was %i\n", score);
+
+	if (saving) {
+		printf("Saving this score under %s\n\n", user);
+
+		//format of save file is user:score\n
+		//to make this work, ensure that the entered user has no : characters in it
+		FILE* file = fopen(filename, "r");
+		if (!file) { 
+			printf("error, cannot open 'tetris_scores.txt'. Creating it...\n");
+			file = fopen(filename, "w");
+			printf("'tetris_scores.txt' created.\n");
+			fclose(file);
+			fopen(filename, "r");
+		}
+		
+		fseek(file, 0, SEEK_END);
+		size_t fsize = ftell(file);
+		fseek(file, 0, SEEK_SET);
+
+		if (fsize == 0) { //the file is empty
+			fclose(file);
+			file = fopen(filename, "w");
+			fprintf(file, "%s:%i\n", user, score);
+			printf("score saved.\n");
+			return 0;
+		}
+		
+
+		//two buffers, one for reading the file and one for writing
+		char* scorebuffer = (char*) calloc(fsize, sizeof(char));
+		fread(scorebuffer, sizeof(char), fsize, file);
+
+		char* scorewriter = (char*) calloc(fsize + 200, sizeof(char));
+		char* scoreptr = scorewriter;
+
+		//we analyse this file, and add/edit entries
+		//also impose a max username length
+		char* curUser = (char*) calloc(maxUserLength + 1, sizeof(char));
+		//for loop to go through stuff
+		
+		bool userFound = false;
+
+		int j = 0;
+		for (size_t i = 0; i < fsize; i++, j++) {
+			scoreptr += sprintf(scoreptr, "%c", scorebuffer[i]);
+
+			if (scorebuffer[i] == ':') {
+				//we finish reading and compare
+				if (!strcmp(curUser, user)) { //do they match?
+					//if so, we have to edit the score.
+					//first we have to get the current score
+
+					int k = i + 1, currentscore = 0;
+					while (scorebuffer[k] != '\n') {
+						currentscore += (int) (scorebuffer[k] - 48);
+						currentscore *= 10;
+						k++;
+					}
+					currentscore /= 10;
+					//printf("currentscore is %i\n", currentscore);
+					if (score > currentscore) scoreptr += sprintf(scoreptr, "%i\n", score);
+					else scoreptr += sprintf(scoreptr, "%i\n", currentscore);
+					userFound = true;
+					
+					while (scorebuffer[i] != '\n') i++;
+				}
+				else {
+					//printf("user not found\n");
+					i++;
+					while (scorebuffer[i] != '\n') {
+						scoreptr += sprintf(scoreptr, "%c", scorebuffer[i]);
+						i++;
+					}
+					scoreptr += sprintf(scoreptr, "%c", scorebuffer[i]);
+				}
+				memset(curUser, 0, maxUserLength + 1);
+				j = -1;
+				continue;
+			}
+			
+			curUser[j] = scorebuffer[i];
+		}
+
+		if (!userFound) {
+			scoreptr += sprintf(scoreptr, "%s:%i\n", user, score);
+		}
+		
+		fclose(file);
+		file = fopen(filename, "w");
+		fwrite(scorewriter, sizeof(char), strlen(scorewriter), file);
+		fclose(file);
+
+
+
+	}
 
 	return 0;
 
