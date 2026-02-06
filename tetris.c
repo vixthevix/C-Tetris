@@ -38,6 +38,7 @@ const char colours[7][20] = {
 };
 
 const char* filename = "tetris_scores.txt";
+const char* bindfilename = "tetris_bindings.txt";
 
 //const char tcolours[7][20] = {
 //	REDTEXT,
@@ -280,7 +281,7 @@ bool validPiecePosition(int glength, int gheight, char grid[glength][gheight], P
 	return true;
 }
 
-bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, char shiftCount) {
+bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, char shiftCount, char bindings[5]) {
 	//order of what happens
 	//first move down
 	//second check for collisions with floor / other pieces. if true return immediately.
@@ -311,59 +312,55 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, c
 	//for each io, we check if we can make that move. if we cant, we revert changes.
 	if (kbhit()) {
 		char key = getch();
-		switch (key) {
-			case 'a': { //move left
-				newpiece.p1.x--;
-				newpiece.p2.x--;
-				newpiece.p3.x--;
-				newpiece.p4.x--;
-				if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
-					newpiece.p1.x++;
-					newpiece.p2.x++;
-					newpiece.p3.x++;
-					newpiece.p4.x++;
-				}
-				break;
-			}
-			case 'd': { //move right
-				newpiece.p1.x++;
-				newpiece.p2.x++;
-				newpiece.p3.x++;
-				newpiece.p4.x++;
-				if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
-					newpiece.p1.x--;
-					newpiece.p2.x--;
-					newpiece.p3.x--;
-					newpiece.p4.x--;
-				}
-				break;
-			}
-			case 'q': { //rotatte anticlockwise
-				rotatePiece(&newpiece, false);
-				if (!validPiecePosition(glength, gheight, grid, &newpiece)) rotatePiece(&newpiece, true);
-				break;
-			}
-			case 'e': { //rotate clockwise
-				rotatePiece(&newpiece, true);
-				if (!validPiecePosition(glength, gheight, grid, &newpiece)) rotatePiece(&newpiece, false);
-				break;
-			}
-			case 's': { //move straight down.
-				while (validPiecePosition(glength, gheight, grid, &newpiece)) {
-					newpiece.p1.y++;
-					newpiece.p2.y++;
-					newpiece.p3.y++;
-					newpiece.p4.y++;
-				}
-				newpiece.p1.y--;
-				newpiece.p2.y--;
-				newpiece.p3.y--;
-				newpiece.p4.y--;
-				*piece = newpiece;
-				return false;
-
-				break;
-			}
+		if (key == bindings[0]) { // move left
+		    newpiece.p1.x--;
+		    newpiece.p2.x--;
+		    newpiece.p3.x--;
+		    newpiece.p4.x--;
+		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
+			newpiece.p1.x++;
+			newpiece.p2.x++;
+			newpiece.p3.x++;
+			newpiece.p4.x++;
+		    }
+		} 
+		else if (key == bindings[1]) { // move right
+		    newpiece.p1.x++;
+		    newpiece.p2.x++;
+		    newpiece.p3.x++;
+		    newpiece.p4.x++;
+		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
+			newpiece.p1.x--;
+			newpiece.p2.x--;
+			newpiece.p3.x--;
+			newpiece.p4.x--;
+		    }
+		} 
+		else if (key == bindings[2]) { // rotate clockwise
+		    rotatePiece(&newpiece, true);
+		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
+			rotatePiece(&newpiece, false);
+		    }
+		} 
+		else if (key == bindings[3]) { // rotate anticlockwise
+		    rotatePiece(&newpiece, false);
+		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
+			rotatePiece(&newpiece, true);
+		    }
+		} 
+		else if (key == bindings[4]) { // move straight down
+		    while (validPiecePosition(glength, gheight, grid, &newpiece)) {
+			newpiece.p1.y++;
+			newpiece.p2.y++;
+			newpiece.p3.y++;
+			newpiece.p4.y++;
+		    }
+		    newpiece.p1.y--;
+		    newpiece.p2.y--;
+		    newpiece.p3.y--;
+		    newpiece.p4.y--;
+		    *piece = newpiece;
+		    return false;
 		}
 	}
 
@@ -526,7 +523,7 @@ unsigned long hash(char* string) {
 }
 
 void printHelp() {
-	printf("Hello, welcome to tetris :D\nTo play, just enter tetris (or ./tetris)\nControls are:\na -> move left\nd -> move right\nq -> rotate clockwise\ne -> rotate anticlockwise\nd -> drop piece down\n\nList of flags:\n-h/--help -> lists this message.\n-s/--seed -> enter your seed.\n-n/--new -> enter a username to save your score.\n-sh/--show -> show all your scores.\n-cl/--clear -> clears all your scores.\nHave fun!!!\n\n");
+	printf("Hello, welcome to tetris :D\nTo play, just enter tetris (or ./tetris)\nControls are:\na -> move left\nd -> move right\nq -> rotate clockwise\ne -> rotate anticlockwise\nd -> drop piece down\n\nList of flags:\n-h/--help -> lists this message.\n-s/--seed -> enter your seed.\n-n/--new -> enter a username to save your score.\n-sh/--show -> show all your scores.\n-cl/--clear -> clears all your scores.\n-shb/--showbindings -> shows your current keyboard bindings.\n-sb/--setbindings -> configures your bindings to your liking.\n-rb/--resetbindings -> resets your bindings to the standard.\nHave fun!!!\n\n");
 }
 
 void showScore() {
@@ -558,12 +555,98 @@ void clearScore() {
 	}
 }
 
+void showBindings() {
+	FILE* bindfile = fopen(bindfilename, "r");
+	if (!bindfile) {
+		bindfile = fopen(bindfilename, "w");
+		fprintf(bindfile, "a:d:e:q:s");
+		fclose(bindfile);
+		printf("\n\nControls are:\na -> left\nd -> right\ne -> clockwise\nq -> anticlockwise\ns -> place down\n\n");
+		return;
+	}
+	printf("\n\nControls are:\n");
+
+	fseek(bindfile, 0, SEEK_END);
+	size_t fsize = ftell(bindfile);
+	fseek(bindfile, 0, SEEK_SET);
+
+	char* buffer = (char*) calloc(fsize, sizeof(char));
+	fread(buffer, sizeof(char), fsize, bindfile);
+	int i = -2;
+	printf("%c -> left\n", buffer[i += 2]);
+	printf("%c -> right\n", buffer[i += 2]);
+	printf("%c -> clockwise\n", buffer[i += 2]);
+	printf("%c -> anticlockwise\n", buffer[i += 2]);
+	printf("%c -> place down\n\n", buffer[i += 2]);
+	
+	free(buffer);
+	fclose(bindfile);
+}
+
+void setBindings() {
+	//with this, we open our bindings file and save bindings
+	FILE* bindfile = fopen(bindfilename, "w");
+	char left, right, clock, anticlock, down;
+	printf("\n\n");
+	printf("Enter the key for MOVING LEFT: ");
+	scanf(" %c", &left);
+	printf("\nEnter the key for MOVING RIGHT: ");
+	scanf(" %c", &right);
+	printf("\nEnter the key for ROTATING CLOCKWISE: ");
+	scanf(" %c", &clock);
+	printf("\nEnter the key for ROTATING ANTICLOCKWISE: ");
+	scanf(" %c", &anticlock);
+	printf("\nEnter the key for PLACING DOWN: ");
+	scanf(" %c", &down);
+
+	fprintf(bindfile, "%c:%c:%c:%c:%c", left, right, clock, anticlock, down);
+	
+	printf("\n\nFinished setting bindings");
+	fclose(bindfile);
+	showBindings();
+}
+
+void resetBindings() {
+	FILE* bindfile = fopen(bindfilename, "w");
+	fprintf(bindfile, "a:d:e:q:s");
+	fclose(bindfile);
+	printf("\n\nReset bindings");
+	showBindings();
+}
+
+
+
 int main(int argc, char** argv) {
-	enable_raw_mode(); //for kbhit
 	srand(time(NULL));
 	bool saving = false;
 	char* user = NULL;
 	const int maxUserLength = 10;
+
+	//set our bindings first.
+	
+	char bindings[5] = {0};
+	FILE* bindfile = fopen(bindfilename, "r");
+	if (!bindfile) {
+		bindings[0] = 'a';
+		bindings[1] = 'd';
+		bindings[2] = 'e';
+		bindings[3] = 'q';
+		bindings[4] = 's';
+	}
+	else {	
+		fseek(bindfile, 0, SEEK_END);
+		size_t fsize = ftell(bindfile);
+		fseek(bindfile, 0, SEEK_SET);
+
+		char* buffer = (char*) calloc(fsize, sizeof(char));
+		fread(buffer, sizeof(char), fsize, bindfile);
+		int i = -2;
+		bindings[0] = buffer[i += 2];
+		bindings[1] = buffer[i += 2];
+		bindings[2] = buffer[i += 2];
+		bindings[3] = buffer[i += 2];
+		bindings[4] = buffer[i += 2];
+	}
 
 
 	if (argc <= 1);
@@ -584,13 +667,24 @@ int main(int argc, char** argv) {
 				printHelp();
 				return 0;
 			}
-			else if (!strcmp(cur, "-sh") || !strcmp(cur, "--show")) {
-				
+			else if (!strcmp(cur, "-sh") || !strcmp(cur, "--show")) {	
 				showScore();
 				return 0;
 			}
 			else if (!strcmp(cur, "-cl") || !strcmp(cur, "--clear")) {
 				clearScore();
+				return 0;
+			}
+			else if (!strcmp(cur, "-shb") || !strcmp(cur, "--showbindings")) {
+				showBindings();
+				return 0;
+			}
+			else if (!strcmp(cur, "-sb") || !strcmp(cur, "--setbindings")) {
+				setBindings();
+				return 0;
+			}
+			else if (!strcmp(cur, "-rb") || !strcmp(cur, "--resetbindings")) {
+				resetBindings();
 				return 0;
 			}
 
@@ -630,8 +724,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	
-
+	enable_raw_mode(); //for kbhit
 	const char* reset = "\033[2J\033[H\e[?25l";
 	
 	int bagindex = 0;
@@ -682,9 +775,14 @@ int main(int argc, char** argv) {
 	
 	unsigned frames = 200000 / shiftMod;
 
+	//open up our bindings folder to get our bindings.
+	//in the format left:right:clock:anticlock:down
+	
+
+
 	bool going = true;
 	while (going) {
-		if (!loop(glength, gheight, grid, &piece, shiftCount)) { //piece was placed
+		if (!loop(glength, gheight, grid, &piece, shiftCount, bindings)) { //piece was placed
 			addPieceToGrid(glength, gheight, grid, piece);
 			//now we want to check the grid for any completed rows.
 			score += scoreRows(glength, gheight, grid);
