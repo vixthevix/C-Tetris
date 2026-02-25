@@ -111,10 +111,10 @@ Piece generatePiece(Piecetype type) {
 
 	switch (type) {
 		case T: {
-			piece.p1.x = 5; piece.p1.y = 0;
+			piece.p1.x = 4; piece.p1.y = 1;
 			piece.p2.x = 5; piece.p2.y = 1;
-			piece.p3.x = 4; piece.p3.y = 1;
-			piece.p4.x = 6; piece.p4.y = 1;
+			piece.p3.x = 6; piece.p3.y = 1;
+			piece.p4.x = 5; piece.p4.y = 0;
 			piece.origin = &piece.p2;
 			break;
 		}
@@ -123,7 +123,7 @@ Piece generatePiece(Piecetype type) {
 			piece.p2.x = 5; piece.p2.y = 1;
 			piece.p3.x = 5; piece.p3.y = 2;
 			piece.p4.x = 5; piece.p4.y = 3;
-			piece.origin = &piece.p2;
+			piece.origin = &piece.p1;
 			break;
 		}
 		case CUBE: {
@@ -139,7 +139,7 @@ Piece generatePiece(Piecetype type) {
 			piece.p2.x = 5; piece.p2.y = 0;
 			piece.p3.x = 5; piece.p3.y = 1;
 			piece.p4.x = 4; piece.p4.y = 1;
-			piece.origin = &piece.p3;
+			piece.origin = &piece.p1;
 			break;
 		}
 		case Z: {
@@ -147,7 +147,7 @@ Piece generatePiece(Piecetype type) {
 			piece.p2.x = 5; piece.p2.y = 0;
 			piece.p3.x = 5; piece.p3.y = 1;
 			piece.p4.x = 6; piece.p4.y = 1;
-			piece.origin = &piece.p3;
+			piece.origin = &piece.p1;
 			break;
 		}
 		case L: {
@@ -155,7 +155,7 @@ Piece generatePiece(Piecetype type) {
 			piece.p2.x = 5; piece.p2.y = 1;
 			piece.p3.x = 5; piece.p3.y = 2;
 			piece.p4.x = 6; piece.p4.y = 2;
-			piece.origin = &piece.p2;
+			piece.origin = &piece.p1;
 			break;
 		}
 		case BL: {
@@ -163,7 +163,7 @@ Piece generatePiece(Piecetype type) {
 			piece.p2.x = 5; piece.p2.y = 1;
 			piece.p3.x = 5; piece.p3.y = 2;
 			piece.p4.x = 4; piece.p4.y = 2;
-			piece.origin = &piece.p2;
+			piece.origin = &piece.p1;
 			break;
 		}
 	}
@@ -359,14 +359,16 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, P
 		else if (key == bindings[2]) { // rotate clockwise
 		    rotatePiece(&newpiece, true);
 		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
-			rotatePiece(&newpiece, false);
-		    }
+			rotatePiece(&newpiece, false); 
+            printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+            }
             else ghostChanged = true;
 		} 
 		else if (key == bindings[3]) { // rotate anticlockwise
 		    rotatePiece(&newpiece, false);
 		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
 			rotatePiece(&newpiece, true);
+            printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
 		    }
             else ghostChanged = true;
 		} 
@@ -395,6 +397,7 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, P
 
     if (ghostChanged == true) {
         *ghost = newpiece;
+        ghost->origin = NULL;
         updateGhost(glength, gheight, grid, ghost);
     }
 	return true;
@@ -802,6 +805,7 @@ int main(int argc, char** argv) {
 	Piece nextpiece = generatePiece(bag[bagindex + 1]);
     //used to show the predicted piece place
     Piece ghostpiece = piece;
+    ghostpiece.origin = NULL;
     updateGhost(glength, gheight, grid, &ghostpiece);
 	bagindex++;
 
@@ -833,6 +837,7 @@ int main(int argc, char** argv) {
 			} 
 			piece = nextpiece;
             ghostpiece = nextpiece;
+            ghostpiece.origin = NULL;
             updateGhost(glength, gheight, grid, &ghostpiece);
 			nextpiece = generatePiece(bag[bagindex]);
 			//in order to check if we have lost, we need to check if this newpiece at the beginning is valid
