@@ -37,6 +37,8 @@ const char colours[7][20] = {
 	WHITEBG
 };
 
+
+
 const char* filename = "tetris_scores.txt";
 const char* bindfilename = "tetris_bindings.txt";
 
@@ -281,7 +283,21 @@ bool validPiecePosition(int glength, int gheight, char grid[glength][gheight], P
 	return true;
 }
 
-bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, char shiftCount, char bindings[5]) {
+void updateGhost(int glength, int gheight, char grid[glength][gheight], Piece* ghost) {
+    
+    while (validPiecePosition(glength, gheight, grid, ghost)) {
+        ghost->p1.y++;
+        ghost->p2.y++;
+        ghost->p3.y++;
+        ghost->p4.y++;
+    }
+    ghost->p1.y--;
+    ghost->p2.y--;
+    ghost->p3.y--;
+    ghost->p4.y--;
+}
+
+bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, Piece* ghost, char shiftCount, char bindings[5]) {
 	//order of what happens
 	//first move down
 	//second check for collisions with floor / other pieces. if true return immediately.
@@ -310,6 +326,8 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, c
 
 	//this means that the piece will continue on moving down, so we allow IO here.
 	//for each io, we check if we can make that move. if we cant, we revert changes.
+    //also, for each change in io, we determine that the ghost piece needs changing.
+    bool ghostChanged = false;
 	if (kbhit()) {
 		char key = getch();
 		if (key == bindings[0]) { // move left
@@ -323,6 +341,7 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, c
 			newpiece.p3.x++;
 			newpiece.p4.x++;
 		    }
+            else ghostChanged = true;
 		} 
 		else if (key == bindings[1]) { // move right
 		    newpiece.p1.x++;
@@ -335,20 +354,23 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, c
 			newpiece.p3.x--;
 			newpiece.p4.x--;
 		    }
+            else ghostChanged = true;
 		} 
 		else if (key == bindings[2]) { // rotate clockwise
 		    rotatePiece(&newpiece, true);
 		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
 			rotatePiece(&newpiece, false);
 		    }
+            else ghostChanged = true;
 		} 
 		else if (key == bindings[3]) { // rotate anticlockwise
 		    rotatePiece(&newpiece, false);
 		    if (!validPiecePosition(glength, gheight, grid, &newpiece)) {
 			rotatePiece(&newpiece, true);
 		    }
+            else ghostChanged = true;
 		} 
-		else if (key == bindings[4]) { // move straight down
+		else if (key == bindings[4]) { // move straight down, no need for ghost piece here
 		    while (validPiecePosition(glength, gheight, grid, &newpiece)) {
 			newpiece.p1.y++;
 			newpiece.p2.y++;
@@ -364,12 +386,21 @@ bool loop(int glength, int gheight, char grid[glength][gheight], Piece* piece, c
 		}
 	}
 
+
+
 	//once done, save the piece and return true
 
 	*piece = newpiece;
+    //update ghost if needed.
+
+    if (ghostChanged == true) {
+        *ghost = newpiece;
+        updateGhost(glength, gheight, grid, ghost);
+    }
 	return true;
 	
 }
+
 
 void addPieceToGrid(int glength, int gheight, char grid[glength][gheight], Piece piece) {
 	int x, y;
@@ -437,7 +468,7 @@ int scoreRows(int glength, int gheight, char grid[glength][gheight]) {
 	return score;
 }
 
-void display(int glength, int gheight, char grid[glength][gheight], Piece piece, Piece nextpiece, int score) {
+void display(int glength, int gheight, char grid[glength][gheight], Piece piece, Piece nextpiece, Piece ghost, int score) {
 
 	//first we edit nextpiece so that it is outside of the grid.
 	//at most, the horizontal length is 3 and the vertical length is 4
@@ -477,6 +508,10 @@ void display(int glength, int gheight, char grid[glength][gheight], Piece piece,
 			else if ((piece.p1.x == x && piece.p1.y == y) || (piece.p2.x == x && piece.p2.y == y) || (piece.p3.x == x && piece.p3.y == y) || (piece.p4.x == x && piece.p4.y == y)) {
 				//ptr += sprintf(ptr, "#");
 				ptr += sprintf(ptr, "%s ", colours[piece.type]);
+			}
+			else if ((ghost.p1.x == x && ghost.p1.y == y) || (ghost.p2.x == x && ghost.p2.y == y) || (ghost.p3.x == x && ghost.p3.y == y) || (ghost.p4.x == x && ghost.p4.y == y)) {
+				//ptr += sprintf(ptr, "#");
+				ptr += sprintf(ptr, "G"); //G for ghost
 			}
 			else ptr += sprintf(ptr, " ");
 			ptr += sprintf(ptr, RESETTEXT);
@@ -765,6 +800,9 @@ int main(int argc, char** argv) {
 	Piece piece = generatePiece(bag[bagindex]);
 	//used to show what piece is next
 	Piece nextpiece = generatePiece(bag[bagindex + 1]);
+    //used to show the predicted piece place
+    Piece ghostpiece = piece;
+    updateGhost(glength, gheight, grid, &ghostpiece);
 	bagindex++;
 
 
@@ -782,7 +820,7 @@ int main(int argc, char** argv) {
 
 	bool going = true;
 	while (going) {
-		if (!loop(glength, gheight, grid, &piece, shiftCount, bindings)) { //piece was placed
+		if (!loop(glength, gheight, grid, &piece, &ghostpiece, shiftCount, bindings)) { //piece was placed
 			addPieceToGrid(glength, gheight, grid, piece);
 			//now we want to check the grid for any completed rows.
 			score += scoreRows(glength, gheight, grid);
@@ -794,6 +832,8 @@ int main(int argc, char** argv) {
 				//bagindex = 0;
 			} 
 			piece = nextpiece;
+            ghostpiece = nextpiece;
+            updateGhost(glength, gheight, grid, &ghostpiece);
 			nextpiece = generatePiece(bag[bagindex]);
 			//in order to check if we have lost, we need to check if this newpiece at the beginning is valid
 			if (!validPiecePosition(glength, gheight, grid, &piece)) {
@@ -801,7 +841,7 @@ int main(int argc, char** argv) {
 			}
 			continue;
 		}
-		display(glength, gheight, grid, piece, nextpiece, score);
+		display(glength, gheight, grid, piece, nextpiece, ghostpiece, score);
 
 		//printf("\n");
 		//for (int i = 0; i < 7; i++) {
