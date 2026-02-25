@@ -1,2 +1,1 @@
-ameen:0
-anas:80
+victor:2720
